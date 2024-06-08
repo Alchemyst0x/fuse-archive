@@ -1,87 +1,105 @@
-# Fuse-Archive
+# fuse-archive
 
-`fuse-archive` is a program that serves an archive or compressed file (e.g.
-`foo.tar`, `foo.tar.gz`, `foo.xz` or `foo.zip`) as a read-only
-[FUSE](https://en.wikipedia.org/wiki/Filesystem_in_Userspace) file system.
+## Note
 
-It is similar to [`mount-zip`](https://github.com/google/mount-zip) and
-[`fuse-zip`](https://bitbucket.org/agalanin/fuse-zip) but speaks a larger range
-of archive or compressed file formats.
+The only changes made to this fork of the [original repo](https://github.com/google/fuse-archive) are in [the Makefile](Makefile) and this [`README`](README.md) to enable compilation and usage on macOS. Specifically:
 
-It is similar to [`archivemount`](https://github.com/cybernoid/archivemount) but
-can be much faster (see the Performance section below) although it can only
-mount read-only, not read-write.
+1. **Makefile Adjustments**:
+   - Set [prefix](https://github.com/Alchemyst0x/fuse-archive/blob/main/Makefile#L5) to `/usr/local` to avoid read-only `/usr/bin`, and modified [`uninstall`](https://github.com/Alchemyst0x/fuse-archive/blob/main/Makefile#L29) to match.
+   - [Ensured the use of `clang++`](https://github.com/Alchemyst0x/fuse-archive/blob/main/Makefile#L8) as the default compiler.
+   - Added [macOS-specific flags](https://github.com/Alchemyst0x/fuse-archive/blob/main/Makefile#L11-L14) and [flags for C++ version compatibility](https://github.com/Alchemyst0x/fuse-archive/blob/main/Makefile#L9).
 
+2. **README Updates**:
+   - Added detailed installation instructions for macOS, including dependencies and environment variable setup.
+   - Added usage examples and instructions for mounting archives with `fuse-archive`.
 
-## Build
+### Disclaimer
 
-    $ git clone https://github.com/google/fuse-archive.git
-    $ cd fuse-archive
-    $ make
+I am not affiliated with Google. See [the original README](https://github.com/google/fuse-archive/blob/main/README.md) for more information, and for anything else, please refer to [the canonical source codebase](https://github.com/google/fuse-archive/tree/main).
 
-On a Debian system, you may first need to install some dependencies:
-
-    $ sudo apt install libarchive-dev libfuse-dev
-
-
-## Performance
-
-Create a single `.tar.gz` file that is 256 MiB decompressed and 255 KiB
-compressed (the file just contains repeated 0x00 NUL bytes):
-
-```
-$ truncate --size=256M zeroes
-$ tar cfz zeroes-256mib.tar.gz zeroes
-```
-
-Create a `mnt` directory:
-
-```
-$ mkdir mnt
-```
-
-`fuse-archive` timings:
-
-```
-$ time fuse-archive zeroes-256mib.tar.gz mnt
-real    0m0.443s
-
-$ dd if=mnt/zeroes of=/dev/null status=progress
-524288+0 records in
-524288+0 records out
-268435456 bytes (268 MB, 256 MiB) copied, 0.836048 s, 321 MB/s
-
-$ fusermount -u mnt
-```
-
-`archivemount` timings:
-
-```
-$ time archivemount zeroes-256mib.tar.gz mnt
-real    0m0.581s
-
-$ dd if=mnt/zeroes of=/dev/null status=progress
-268288512 bytes (268 MB, 256 MiB) copied, 569 s, 471 kB/s
-524288+0 records in
-524288+0 records out
-268435456 bytes (268 MB, 256 MiB) copied, 570.146 s, 471 kB/s
-
-$ fusermount -u mnt
-```
-
-Here, `fuse-archive` takes about the same time to scan the archive, bind the
-mountpoint and daemonize, but it is **~700× faster** (0.83s vs 570s) to copy out
-the decompressed contents. This is because `fuse-archive` does not use
-`archivemount`'s [quadratic complexity
-algorithm](https://github.com/cybernoid/archivemount/issues/21).
-
-
-## Disclaimer
-
-This is not an official Google product. It is just code that happens to be owned
-by Google.
-
+I am not responsible for any actions you take or any consequences that arise from using this code. Use it at your own risk.
 
 ---
 
-Updated on May 2022.
+## Installation Instructions for macOS
+
+### Prerequisites
+
+Ensure you have Homebrew installed. If not, you can install it by following the instructions at [brew.sh](https://brew.sh/).
+
+### Dependencies
+
+Install the required dependencies using Homebrew:
+
+```sh
+brew install libarchive macfuse pkg-config
+```
+
+### Building the Project
+
+#### Clone the repository
+
+```sh
+git clone https://github.com/Alchemyst0x/fuse-archive.git && cd fuse-archive
+```
+
+Alternatively, if you'd rather clone the original repo and modify the Makefile yourself:
+
+```sh
+git clone https://github.com/google/fuse-archive.git && cd fuse-archive
+```
+
+#### Set the `PKG_CONFIG_PATH` environment variable
+
+Locate `libarchive.pc` and add the directory containing this file to the `PKG_CONFIG_PATH` variable, e.g.:
+
+```sh
+find $(brew --prefix) -name libarchive.pc
+# Output:
+# /opt/homebrew/Cellar/libarchive/3.7.4/lib/pkgconfig/libarchive.pc
+export PKG_CONFIG_PATH="/opt/homebrew/Cellar/libarchive/3.7.4/lib/pkgconfig:/usr/local/lib/pkgconfig"
+```
+
+#### Build the project
+
+```sh
+make all
+```
+
+### Installing the Binary
+
+Install the binary to `/usr/local/bin`:
+
+```sh
+sudo make install
+```
+
+### Usage
+
+Run the `fuse-archive` binary with the `-h` flag to see the usage instructions:
+
+```sh
+./out/fuse-archive -h
+```
+
+#### Example
+
+For example, to mount a ZIP archive on a macOS system, you might do the following:
+
+```sh
+sudo fuse-archive -o allow_other /Users/YourUsername/some_zip_file.zip /Volumes/some_mounted_zip
+```
+
+You can then verify the mount was successful, e.g.:
+
+```sh
+ls /Volumes/some_mounted/zip
+```
+
+### Uninstalling
+
+To uninstall the binary:
+
+```sh
+sudo make uninstall
+```
